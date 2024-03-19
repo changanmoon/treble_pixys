@@ -1,22 +1,22 @@
 #!/bin/bash
 
 echo
-echo "--------------------------------------"
-echo "          AOSP 14.0 Buildbot          "
-echo "                  by                  "
-echo "                ponces                "
-echo "--------------------------------------"
+echo "----------------------------------------"
+echo "          PixysOS 14.0 Buildbot         "
+echo "                  by                    "
+echo "              changanmoon               "
+echo "----------------------------------------"
 echo
 
 set -e
 
-BL=$PWD/treble_aosp
+BL=$PWD/treble_pixys
 BD=$HOME/builds
 
 initRepos() {
     if [ ! -d .repo ]; then
         echo "--> Initializing workspace"
-        repo init -u https://android.googlesource.com/platform/manifest -b android-14.0.0_r29 --git-lfs
+        repo init -u https://github.com/PixysOS/manifest -b fourteen
         echo
 
         echo "--> Preparing local manifest"
@@ -38,14 +38,14 @@ applyPatches() {
     bash $BL/patch.sh $BL trebledroid
     echo
 
-    echo "--> Applying personal patches"
+    echo "--> Applying Poncespersonal patches"
     bash $BL/patch.sh $BL personal
     echo
 
     echo "--> Generating makefiles"
     cd device/phh/treble
-    cp $BL/build/aosp.mk .
-    bash generate.sh aosp
+    cp $BL/build/pixys.mk .
+    bash generate.sh pixys
     cd ../../..
     echo
 }
@@ -66,15 +66,6 @@ buildTrebleApp() {
     echo
 }
 
-buildVanillaVariant() {
-    echo "--> Building treble_arm64_bvN"
-    lunch treble_arm64_bvN-ap1a-userdebug
-    make -j$(nproc --all) installclean
-    make -j$(nproc --all) systemimage
-    mv $OUT/system.img $BD/system-treble_arm64_bvN.img
-    echo
-}
-
 buildGappsVariant() {
     echo "--> Building treble_arm64_bgN"
     lunch treble_arm64_bgN-ap1a-userdebug
@@ -84,13 +75,7 @@ buildGappsVariant() {
     echo
 }
 
-buildVndkliteVariants() {
-    echo "--> Building treble_arm64_bvN-vndklite"
-    cd treble_adapter
-    sudo bash lite-adapter.sh 64 $BD/system-treble_arm64_bvN.img
-    mv s.img $BD/system-treble_arm64_bvN-vndklite.img
-    sudo rm -rf d tmp
-
+buildVndkliteVariant() {
     echo "--> Building treble_arm64_bgN-vndklite"
     sudo bash lite-adapter.sh 64 $BD/system-treble_arm64_bgN.img
     mv s.img $BD/system-treble_arm64_bgN-vndklite.img
@@ -102,10 +87,8 @@ buildVndkliteVariants() {
 generatePackages() {
     echo "--> Generating packages"
     buildDate="$(date +%Y%m%d)"
-    xz -cv $BD/system-treble_arm64_bvN.img -T0 > $BD/aosp-arm64-ab-vanilla-14.0-$buildDate.img.xz
-    xz -cv $BD/system-treble_arm64_bvN-vndklite.img -T0 > $BD/aosp-arm64-ab-vanilla-vndklite-14.0-$buildDate.img.xz
-    xz -cv $BD/system-treble_arm64_bgN.img -T0 > $BD/aosp-arm64-ab-gapps-14.0-$buildDate.img.xz
-    xz -cv $BD/system-treble_arm64_bgN-vndklite.img -T0 > $BD/aosp-arm64-ab-gapps-vndklite-14.0-$buildDate.img.xz
+    xz -cv $BD/system-treble_arm64_bgN.img -T0 > $BD/PixysOS-arm64-ab-gapps-14.0-$buildDate.img.xz
+    xz -cv $BD/system-treble_arm64_bgN-vndklite.img -T0 > $BD/PixysOS-arm64-ab-gapps-vndklite-14.0-$buildDate.img.xz
     rm -rf $BD/system-*.img
     echo
 }
@@ -116,7 +99,7 @@ generateOta() {
     buildDate="$(date +%Y%m%d)"
     timestamp="$START"
     json="{\"version\": \"$version\",\"date\": \"$timestamp\",\"variants\": ["
-    find $BD/ -name "aosp-*-14.0-$buildDate.img.xz" | sort | {
+    find $BD/ -name "PixysOS-*-14.0-$buildDate.img.xz" | sort | {
         while read file; do
             filename="$(basename $file)"
             if [[ $filename == *"vanilla-vndklite"* ]]; then
@@ -129,7 +112,7 @@ generateOta() {
                 name="treble_arm64_bgN"
             fi
             size=$(wc -c $file | awk '{print $1}')
-            url="https://github.com/ponces/treble_aosp/releases/download/$version/$filename"
+            url="https://github.com/changanmoon/treble_pixys/releases/download/$version/$filename"
             json="${json} {\"name\": \"$name\",\"size\": \"$size\",\"url\": \"$url\"},"
         done
         json="${json%?}]}"
@@ -145,9 +128,8 @@ syncRepos
 applyPatches
 setupEnv
 buildTrebleApp
-buildVanillaVariant
 buildGappsVariant
-buildVndkliteVariants
+buildVndkliteVariant
 generatePackages
 generateOta
 
